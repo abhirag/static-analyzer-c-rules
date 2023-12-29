@@ -1,0 +1,1 @@
+# datadog-static-analyzer-c-rules
