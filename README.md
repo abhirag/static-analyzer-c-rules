@@ -35,7 +35,7 @@ function visit(node, filename, code) {
         if (name == "gets") {
             const error = buildError(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col,
                 "Avoid gets", "CRITICAL", "security");
-            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "bar");
+            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "gets_s");
             const fix = buildFix("Use fgets or gets_s", [edit]);
             addError(error.addFix(fix));
         }
@@ -183,5 +183,79 @@ int main() {
     return 0;
 }
 
+```
+
+3.
+
+```
+name
+----
+insecure-use-memset
+
+description
+-----------
+When handling sensitive information in a buffer, it's important to ensure 
+that the data is securely erased before the buffer is deleted or reused. 
+While `memset()` is commonly used for this purpose, it can leave sensitive 
+information behind due to compiler optimizations or other factors. 
+To avoid this potential vulnerability, it's recommended to use the 
+`memset_s()` function instead. `memset_s()` is a standardized function 
+that securely overwrites the memory with a specified value, making it more 
+difficult for an attacker to recover any sensitive data that was stored in 
+the buffer. By using `memset_s()` instead of `memset()`, you can help to 
+ensure that your application is more secure and less vulnerable to exploits 
+that rely on residual data in memory.
+
+cwe
+---
+'CWE-14: Compiler Removal of Code to Clear Buffers'
+    
+references
+----------
+- https://cwe.mitre.org/data/definitions/14.html
+- https://owasp.org/Top10/A02_2021-Cryptographic_Failures/
+
+tree_sitter_query
+----------------- 
+(call_expression
+            function: (identifier) @fn_name)
+
+rule_code
+---------
+function visit(node, filename, code) {
+    const functionName = node.captures["fn_name"];
+    if (functionName) {
+        const name = getCode(functionName.start, functionName.end, code);
+        if (name == "memset") {
+            const error = buildError(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col,
+                "Avoid memset", "CRITICAL", "security");
+            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "memset_s");
+            const fix = buildFix("Use memset_s", [edit]);
+            addError(error.addFix(fix));
+        }
+    }
+}
+
+violating code
+--------------
+void badcode(char *password, size_t bufferSize) {
+  char token[256];
+  init(token, password);
+  // ruleid: insecure-use-memset
+  memset(password, ' ', strlen(password));
+  // ruleid: insecure-use-memset
+  memset(token, ' ', strlen(localBuffer));
+  free(password);
+}
+
+void okcode(char *password, size_t bufferSize) {
+  char token[256];
+  init(token, password);
+  // ok: insecure-use-memset
+  memset_s(password, bufferSize, ' ', strlen(password));
+  // ok: insecure-use-memset
+  memset_s(token, sizeof(token), ' ', strlen(localBuffer));
+  free(password);
+}
 ```
 
