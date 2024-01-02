@@ -259,3 +259,76 @@ void okcode(char *password, size_t bufferSize) {
 }
 ```
 
+4.
+
+```
+name
+----
+
+insecure-use-string-copy-fn
+
+description
+-----------
+
+Finding triggers whenever there is a strcpy or strncpy used.
+This is an issue because strcpy does not affirm the size of the destination array
+and strncpy will not automatically NULL-terminate strings.
+This can lead to buffer overflows, which can cause program crashes
+and potentially let an attacker inject code in the program.
+Fix this by using strcpy_s instead (although note that strcpy_s is an
+optional part of the C11 standard, and so may not be available).
+ 
+cwe
+---
+- 'CWE-676: Use of Potentially Dangerous Function'
+    
+references
+----------
+- https://cwe.mitre.org/data/definitions/676
+- https://nvd.nist.gov/vuln/detail/CVE-2019-11365
+
+tree_sitter_query
+----------------- 
+(call_expression
+            function: (identifier) @fn_name)
+
+rule_code
+---------
+function visit(node, filename, code) {
+    const functionName = node.captures["fn_name"];
+    if (functionName) {
+        const name = getCode(functionName.start, functionName.end, code);
+        if (name == "strcpy" || name == "strncpy") {
+            const error = buildError(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col,
+                "Avoid strcpy and strncpy", "WARNING", "security");
+            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "strcpy_s");
+            const fix = buildFix("Use strcpy_s", [edit]);
+            addError(error.addFix(fix));
+        }
+    }
+}
+
+violating code
+--------------
+#include <stdio.h>
+
+int DST_BUFFER_SIZE = 120;
+
+int bad_strcpy(src, dst) {
+    n = DST_BUFFER_SIZE;
+    if ((dst != NULL) && (src != NULL) && (strlen(dst)+strlen(src)+1 <= n))
+    {
+        // ruleid: insecure-use-string-copy-fn
+        strcpy(dst, src);
+
+        // ruleid: insecure-use-string-copy-fn
+        strncpy(dst, src, 100);
+    }
+}
+
+int main() {
+   printf("Hello, World!");
+   return 0;
+}
+```
+
