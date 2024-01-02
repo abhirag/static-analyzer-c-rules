@@ -1,4 +1,4 @@
-# datadog-static-analyzer-c-rules
+# static-analyzer-c-rules
 
 Porting some rules from semgrep
 
