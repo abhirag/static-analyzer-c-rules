@@ -401,3 +401,76 @@ int main() {
 }
 ```
 
+6.
+
+```
+name
+----
+
+insecure-use-strtok-fn
+
+description
+-----------
+ 
+Avoid using 'strtok()'. This function directly modifies the first argument buffer,
+permanently erasing the
+delimiter character. Use 'strtok_r()' instead.
+  
+cwe
+---
+- 'CWE-676: Use of Potentially Dangerous Function'
+    
+references
+----------
+- https://wiki.sei.cmu.edu/confluence/display/c/STR06-C.+Do+not+assume+that+strtok%28%29+leaves+the+parse+string+unchanged
+- https://man7.org/linux/man-pages/man3/strtok.3.html#BUGS
+- https://stackoverflow.com/a/40335556
+
+tree_sitter_query
+----------------- 
+(call_expression
+            function: (identifier) @fn_name)
+
+rule_code
+---------
+function visit(node, filename, code) {
+    const functionName = node.captures["fn_name"];
+    if (functionName) {
+        const name = getCode(functionName.start, functionName.end, code);
+        if (name == "strtok") {
+            const error = buildError(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col,
+                "Avoid strtok", "WARNING", "security");
+            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "strtok_r");
+            const fix = buildFix("Use strtok_r", [edit]);
+            addError(error.addFix(fix));
+        }
+    }
+}
+
+violating code
+--------------
+#include <stdio.h>
+
+int DST_BUFFER_SIZE = 120;
+
+int bad_code() {
+    char str[DST_BUFFER_SIZE];
+    fgets(str, DST_BUFFER_SIZE, stdin);
+    // ruleid:insecure-use-strtok-fn
+    strtok(str, " ");
+    printf("%s", str);
+    return 0;
+}
+
+int main() {
+    char str[DST_BUFFER_SIZE];
+    char dest[DST_BUFFER_SIZE];
+    fgets(str, DST_BUFFER_SIZE, stdin);
+    // ok:insecure-use-strtok-fn
+    strtok_r(str, " ", *dest);
+    printf("%s", str);
+    return 0;
+}
+}
+```
+
