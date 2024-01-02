@@ -332,3 +332,72 @@ int main() {
 }
 ```
 
+5.
+
+```
+name
+----
+
+insecure-use-strcat-fn
+
+description
+-----------
+
+Finding triggers whenever there is a strcat or strncat used.
+This is an issue because strcat or strncat can lead to buffer overflow vulns.
+Fix this by using strcat_s instead.
+
+cwe
+---
+- 'CWE-676: Use of Potentially Dangerous Function'
+    
+references
+----------
+- https://nvd.nist.gov/vuln/detail/CVE-2019-12553
+- https://techblog.mediaservice.net/2020/04/cve-2020-2851-stack-based-buffer-overflow-in-cde-libdtsvc/
+
+tree_sitter_query
+----------------- 
+(call_expression
+            function: (identifier) @fn_name)
+
+rule_code
+---------
+function visit(node, filename, code) {
+    const functionName = node.captures["fn_name"];
+    if (functionName) {
+        const name = getCode(functionName.start, functionName.end, code);
+        if (name == "strcat" || name == "strncat") {
+            const error = buildError(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col,
+                "Avoid strcat and strncat", "WARNING", "security");
+            const edit = buildEdit(functionName.start.line, functionName.start.col, functionName.end.line, functionName.end.col, "update", "strcat_s");
+            const fix = buildFix("Use strcat_s", [edit]);
+            addError(error.addFix(fix));
+        }
+    }
+}
+
+violating code
+--------------
+#include <stdio.h>
+
+int DST_BUFFER_SIZE = 120;
+
+int bad_strcpy(src, dst) {
+    n = DST_BUFFER_SIZE;
+    if ((dst != NULL) && (src != NULL) && (strlen(dst)+strlen(src)+1 <= n))
+    {
+        // ruleid: insecure-use-strcat-fn
+        strcat(dst, src);
+
+        // ruleid: insecure-use-strcat-fn
+        strncat(dst, src, 100);
+    }
+}
+
+int main() {
+   printf("Hello, World!");
+   return 0;
+}
+```
+
